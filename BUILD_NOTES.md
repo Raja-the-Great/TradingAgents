@@ -230,3 +230,63 @@ that key is absent.
 5. Next, when wanted: the 5-name starter sweep on the local backend,
    and a quality comparison of `llama3.2:3b` output against a hosted
    model if a key is ever provided.
+
+## End-to-end smoke run — AAPL, 2026-11-20 (stopped early: too slow)
+
+**Setup.** Ollama 0.40.16 serving `llama3.2:3b` (Q4_K_M, 2.0 GB,
+server-default 4096-token context). Install note: the official
+install script requires a `zstd` binary this VM does not have (and
+apt could not provide promptly), so the official release tarball
+from ollama.com was extracted with the venv's Python `zstandard`
+library instead — same artifact, same layout. It was first extracted
+to `/usr/local`, which a VM runtime restart wiped mid-task; it now
+lives at the persistent path **`~/ollama-dist/bin/ollama`** — start
+the server with `~/ollama-dist/bin/ollama serve`. The tarball is
+kept at `~/ollama-linux-amd64.tar.zst` as an offline reinstall
+source. (The model pull was likewise interrupted by that restart
+at ~1.6 GB and resumed cleanly — Ollama blobs are content-addressed.)
+
+**Pre-run checks.** `--check`: READY, exit 0. Graph construction
+under the wrapper's Ollama config: OK.
+
+**The run.** `run_fundamentals --tickers AAPL --date 2026-11-20`,
+started 18:47 PT, **stopped by us at ~19:05 PT after ~18 minutes**,
+still inside the Fundamentals Analyst's tool rounds. Measured on
+the Ollama server: token generation **3.5–3.7 tokens/second**
+(shared-CPU bound). Completed framework LLM calls in the window: 3
+(52.8s, 5m20s, 6m30s — the long ones are the statement-heavy
+analyst calls); a 4th had generated 608 tokens and was still going.
+The graph still needed roughly a dozen calls (remaining analyst
+rounds + report, Bull/Bear, Research Manager, Trader, three risk
+debaters, Portfolio Manager). Projection at the observed pace:
+**1–1.5+ hours for one ticker**; the 5-name starter sweep would
+take most of a day.
+
+**What worked.** Everything except speed: EDGAR data flowed, the
+model produced tool calls and structured responses the framework
+accepted (HTTP 200s; the graph advanced on every completed call),
+and no structured-output failure was observed. The bottleneck is
+purely CPU token generation on this VM — not the framework, not
+the wrapper, not the data path.
+
+**Verdict.** As configured (local 3B model on this box) the agent
+is **impractical as a day-to-day research tool**, so the run was
+not forced to completion. No normalized JSON or rating exists —
+the run never reached the Portfolio Manager, so there is no AAPL
+verdict and no finished report whose coherence could be graded
+(the framework does not save partial output without checkpointing).
+One small quality signal from a pre-run sanity generation: asked
+to reply with exactly one specified word, the 3B model answered a
+different word — the kind of instruction-following slip expected
+at this model size. What would change the math: one hosted LLM key
+(minutes per ticker), a GPU or larger box for Ollama, or a much
+smaller tool-round/context budget (which would change what is
+being measured).
+
+## Build log
+
+- 2026-11-20 — branch `rajesh-fundamentals` created on
+  Raja-the-Great/TradingAgents; wrapper + these notes committed as
+  `01d0321` and pushed (6 files, +743 lines, zero upstream edits).
+- 2026-11-20 — this run record appended in a follow-up commit on
+  the same branch.
